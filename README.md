@@ -2,7 +2,7 @@
 
 A small Windows desktop utility for keeping multiple Codex/ChatGPT logins isolated and viewing their Codex rate-limit usage in one place.
 
-## V1 features
+## V1.1 features
 
 - Multiple Codex accounts, each in its own `CODEX_HOME`.
 - ChatGPT browser login handled by the local `codex app-server`.

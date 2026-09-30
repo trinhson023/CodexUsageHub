@@ -180,9 +180,19 @@ public sealed class CodexRuntimeManager : IDisposable
             ?? throw new FileNotFoundException("Codex CLI was not found. Use Settings > Browse Codex.");
 
         var client = new CodexAppServerClient(executable, profile.CodexHome);
+        AttachNotifications(profile, client);
         await client.StartAsync(cancellationToken);
         _clients[profile.Id] = client;
         return client;
+    }
+
+    private void AttachNotifications(CodexAccountProfile profile, CodexAppServerClient client)
+    {
+        client.RateLimitsUpdated += (_, _) =>
+        {
+            if (!_disposed)
+                UsageChanged?.Invoke(profile.Id);
+        };
     }
 
     private static string CleanError(string message)

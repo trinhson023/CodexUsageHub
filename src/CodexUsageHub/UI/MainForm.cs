@@ -40,6 +40,17 @@ public sealed class MainForm : Form
         _timer.Interval = Math.Max(15, _settingsStore.Current.RefreshSeconds) * 1000;
         _timer.Start();
 
+        _liveRefreshDebounce.Interval = 350;
+        _liveRefreshDebounce.Tick += async (_, _) =>
+        {
+            _liveRefreshDebounce.Stop();
+            if (!_realtimeRefreshPending)
+                return;
+
+            _realtimeRefreshPending = false;
+            await RefreshAllAsync(realtime: true);
+        };
+
         Shown += async (_, _) =>
         {
             await ResolveCodexPathAsync();
@@ -144,13 +155,48 @@ public sealed class MainForm : Form
 
         FormClosed += (_, _) =>
         {
+            _runtimeManager.UsageChanged -= OnUsageChanged;
             _lifetime.Cancel();
             _timer.Stop();
+            _liveRefreshDebounce.Stop();
+            _liveRefreshDebounce.Dispose();
             _trayIcon.Visible = false;
             _overlay?.Close();
             _refreshGate.Dispose();
             _lifetime.Dispose();
         };
+    }
+
+    private void OnUsageChanged(string profileId)
+    {
+        _ = profileId;
+
+        if (_lifetime.IsCancellationRequested || IsDisposed || !IsHandleCreated)
+            return;
+
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                if (_lifetime.IsCancellationRequested)
+                    return;
+
+                // If a manual/fallback read is already in progress it is already fetching
+                // the newest snapshot, so another immediate read would only duplicate work.
+                if (_refreshGate.CurrentCount == 0)
+                    return;
+
+                _realtimeRefreshPending = true;
+                _liveRefreshDebounce.Stop();
+                _liveRefreshDebounce.Start();
+            }));
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task AddAccountAsync()
@@ -245,7 +291,15 @@ public sealed class MainForm : Form
             RenderGrid();
             UpdateOverlay();
             UpdateTrayText();
-            _statusLabel.Text = $"Updated {DateTime.Now:HH:mm:ss} · auto refresh {_settingsStore.Current.RefreshSeconds}s";
+            if (realtime)
+            {
+                _overlay?.PulseLive();
+                _statusLabel.Text = $"Live update {DateTime.Now:HH:mm:ss} · {_settingsStore.Current.RefreshSeconds}s fallback";
+            }
+            else
+            {
+                _statusLabel.Text = $"Updated {DateTime.Now:HH:mm:ss} · live events + {_settingsStore.Current.RefreshSeconds}s fallback";
+            }
         }
         catch (OperationCanceledException)
         {
@@ -365,6 +419,13 @@ public sealed class MainForm : Form
                 _settingsStore.Current.OverlayX = _overlay.Left;
                 _settingsStore.Current.OverlayY = _overlay.Top;
                 await _settingsStore.SaveAsync();
+            };
+            _overlay.RefreshRequested += async (_, _) => await RefreshAllAsync();
+            _overlay.HideRequested += (_, _) =>
+            {
+                _overlay?.Hide();
+                _settingsStore.Current.OverlayEnabled = false;
+                _ = _settingsStore.SaveAsync();
             };
         }
 

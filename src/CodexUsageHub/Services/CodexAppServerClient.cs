@@ -24,7 +24,7 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public bool IsRunning => _process is { HasExited: false };
+    public bool IsRunning => _process is { HasExited: false };\n\n    public event EventHandler? RateLimitsUpdated;
 
     public CodexAppServerClient(string codexExecutablePath, string codexHome)
     {
@@ -61,7 +61,7 @@ public sealed class CodexAppServerClient : IAsyncDisposable
                     {
                         name = "codex_usage_hub",
                         title = "Codex Usage Hub",
-                        version = "1.0.0"
+                        version = "1.1.0"
                     },
                     capabilities = new
                     {
@@ -350,7 +350,14 @@ public sealed class CodexAppServerClient : IAsyncDisposable
             if (!root.TryGetProperty("method", out var methodElement))
                 return;
 
-            if (!string.Equals(methodElement.GetString(), "account/login/completed", StringComparison.Ordinal))
+            var method = methodElement.GetString();
+            if (string.Equals(method, "account/rateLimits/updated", StringComparison.Ordinal))
+            {
+                RateLimitsUpdated?.Invoke(this, EventArgs.Empty);
+                return;
+            }
+
+            if (!string.Equals(method, "account/login/completed", StringComparison.Ordinal))
                 return;
 
             if (!root.TryGetProperty("params", out var parameters))
