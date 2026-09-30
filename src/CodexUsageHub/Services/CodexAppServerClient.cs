@@ -24,7 +24,9 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public bool IsRunning => _process is { HasExited: false };\n\n    public event EventHandler? RateLimitsUpdated;
+    public bool IsRunning => _process is { HasExited: false };
+
+    public event EventHandler? RateLimitsUpdated;
 
     public CodexAppServerClient(string codexExecutablePath, string codexHome)
     {
