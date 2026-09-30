@@ -1,0 +1,63 @@
+name: Build Windows Desktop
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore src/CodexUsageHub/CodexUsageHub.csproj
+
+      - name: Build
+        run: dotnet build src/CodexUsageHub/CodexUsageHub.csproj -c Release --no-restore
+
+      - name: Publish self-contained Windows x64
+        shell: pwsh
+        run: |
+          dotnet publish src/CodexUsageHub/CodexUsageHub.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:PublishReadyToRun=true `
+            -p:PublishTrimmed=false `
+            -p:DebugType=None `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o artifacts/CodexUsageHub-win-x64
+
+      - name: Create zip
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/CodexUsageHub-win-x64/* -DestinationPath artifacts/CodexUsageHub-win-x64.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexUsageHub-win-x64
+          path: artifacts/CodexUsageHub-win-x64.zip
+          if-no-files-found: error
+
+      - name: Attach zip to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/CodexUsageHub-win-x64.zip
+          generate_release_notes: true
