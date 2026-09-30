@@ -363,12 +363,12 @@ public sealed class CodexAppServerClient : IAsyncDisposable
                 return;
 
             var success = parameters.TryGetProperty("success", out var successElement) && successElement.GetBoolean();
-            var error = parameters.TryGetProperty("error", out var errorElement) && errorElement.ValueKind != JsonValueKind.Null
+            var loginError = parameters.TryGetProperty("error", out var errorElement) && errorElement.ValueKind != JsonValueKind.Null
                 ? errorElement.GetString()
                 : null;
 
             if (_loginWaiters.TryGetValue(loginId, out var waiter))
-                waiter.TrySetResult(new LoginCompletion(success, error));
+                waiter.TrySetResult(new LoginCompletion(success, loginError));
         }
     }
 
