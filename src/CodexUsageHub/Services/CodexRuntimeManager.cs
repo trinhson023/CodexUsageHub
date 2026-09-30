@@ -11,6 +11,8 @@ public sealed class CodexRuntimeManager : IDisposable
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _profileGates = new();
     private bool _disposed;
 
+    public event Action<string>? UsageChanged;
+
     public CodexRuntimeManager(SettingsStore settingsStore)
     {
         _settingsStore = settingsStore;
@@ -41,6 +43,7 @@ public sealed class CodexRuntimeManager : IDisposable
         profile.CodexHome = AppPaths.CreateAccountHome(profile.Id);
 
         var client = new CodexAppServerClient(executable, profile.CodexHome);
+        AttachNotifications(profile, client);
         try
         {
             await client.StartAsync(cancellationToken);
