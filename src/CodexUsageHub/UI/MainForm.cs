@@ -16,17 +16,20 @@ public sealed class MainForm : Form
     private readonly ToolStripLabel _codexPathLabel = new();
     private readonly ToolStripStatusLabel _statusLabel = new("Ready");
     private readonly System.Windows.Forms.Timer _timer = new();
+    private readonly System.Windows.Forms.Timer _liveRefreshDebounce = new();
     private readonly NotifyIcon _trayIcon = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private readonly Dictionary<string, UsageSnapshot> _snapshots = new();
     private readonly CancellationTokenSource _lifetime = new();
     private OverlayForm? _overlay;
+    private bool _realtimeRefreshPending;
     private bool _exitRequested;
 
     public MainForm(SettingsStore settingsStore, CodexRuntimeManager runtimeManager)
     {
         _settingsStore = settingsStore;
         _runtimeManager = runtimeManager;
+        _runtimeManager.UsageChanged += OnUsageChanged;
 
         Text = "Codex Usage Hub";
         StartPosition = FormStartPosition.CenterScreen;
@@ -191,10 +194,10 @@ public sealed class MainForm : Form
                 _liveRefreshDebounce.Start();
             }));
         }
-        catch (InvalidOperationException)
+        catch (ObjectDisposedException)
         {
         }
-        catch (ObjectDisposedException)
+        catch (InvalidOperationException)
         {
         }
     }
@@ -263,7 +266,7 @@ public sealed class MainForm : Form
         }
     }
 
-    private async Task RefreshAllAsync()
+    private async Task RefreshAllAsync(bool realtime = false)
     {
         if (!await _refreshGate.WaitAsync(0))
             return;
