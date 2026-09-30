@@ -70,7 +70,7 @@ public sealed class OverlayForm : Form
             ForeColor = ForeColor,
             BackColor = Color.Transparent,
             Margin = new Padding(2, 2, 2, 4),
-            Font = new Font(SystemFonts.MessageBoxFont, style)
+            Font = new Font(SystemFonts.MessageBoxFont ?? Control.DefaultFont, style)
         };
         label.MouseDown += BeginDrag;
         label.MouseMove += ContinueDrag;
